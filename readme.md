@@ -1,0 +1,1 @@
+This is application to prevent you from spending to much time in computer.
