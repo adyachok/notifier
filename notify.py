@@ -140,11 +140,10 @@ class Timer(object):
     #         elapsed = int(time.time()) - start_time
     #     callback(elapsed=elapsed, empty=empty)
 
-    def socket_timer(self, timeout=None):
+    def socket_timer(self, timeout):
         empty = False
         elapsed = 0
         start_time = int(time.time())
-        timeout = timeout if timeout else self.state.process_time
 
         stdin, stdut, stderr = select.select([self.sock],[],[], timeout)
         if stdin:
@@ -152,7 +151,7 @@ class Timer(object):
                 print desc.recv(1024)
             elapsed = time.time() - start_time
             return elapsed, empty
-        elapsed = True
+        empty = True
         return elapsed, empty
 
 
@@ -204,16 +203,24 @@ class Engine():
         self.player = Player()
         self.elapsed = 0
 
-    def process(self):
+    def process(self, timeout=0):
+        timeout = timeout if timeout else self.state.process_time
         elapsed, empty = self.timer.socket_timer(self.state.process_time)
         self.process_event(elapsed, empty)
 
     def process_event(self, elapsed=0, empty=False):
-        # import pdb; pdb.set_trace()
+        timeout = 0
         if isinstance(self.state, WaitingState) and not empty:
-            self.state = self.state.waiting_state
-            self.state.process_time -= self.elapsed
-            self.state.notify_state(self.state.process_time)
+            timeout = int(self.state.process_time - self.elapsed)
+            if isinstance(self.state.waiting_state, RelaxState) and timeout <= 0:
+                self.state = self.state.waiting_state.next_state()
+                sendmessage(self.state.title,
+                            self.state.message,
+                            self.state.image)
+                self.player.play(self.state.track)
+                self.state.notify_state(timeout)
+            else:
+                self.state = self.state.waiting_state
             self.elapsed = elapsed = 0
             print "Process Activate"
         elif not self.elapsed and elapsed:
@@ -225,7 +232,7 @@ class Engine():
             sendmessage(self.state.title, self.state.message, self.state.image)
             self.player.play(self.state.track)
             print "New state"
-        self.process()
+        self.process(timeout)
 
 
 def main():
