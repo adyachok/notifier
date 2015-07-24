@@ -100,7 +100,7 @@ class WorkState(State):
 class RelaxState(State):
     def __init__(self, startState=None):
         self.name = "Relax"
-        self.process_time = 15 * 60 * 60
+        self.process_time = 15 * 60
         self.title = "Time to relax"
         self.message = "Let's relax"
         self.track = _full_path('music/be-gentle-with-yourself.mp3')
@@ -125,20 +125,6 @@ class Timer(object):
         while mins != end:
             time.sleep(60)
             mins += 1
-
-    # def queued_timer(self, callback, timeout=None):
-    #     empty = False
-    #     elapsed = 0
-    #     start_time = int(time.time())
-    #     timeout = timeout if timeout else self.state.process_time
-    #     try:
-    #         self.queue.get(timeout=timeout)
-    #         self.queue.task_done()
-    #     except Queue.Empty:
-    #         empty = True
-    #     else:
-    #         elapsed = int(time.time()) - start_time
-    #     callback(elapsed=elapsed, empty=empty)
 
     def socket_timer(self, timeout):
         empty = False
@@ -211,16 +197,21 @@ class Engine():
     def process_event(self, elapsed=0, empty=False):
         timeout = 0
         if isinstance(self.state, WaitingState) and not empty:
-            timeout = int(self.state.process_time - self.elapsed)
-            if isinstance(self.state.waiting_state, RelaxState) and timeout <= 0:
+            timeout = int(self.state.waiting_state.process_time - self.elapsed)
+            # if waiting state arise from relax state - check if time
+            # elapsed is more than relax process time
+            # if true (mean user don't use PC for this time, so eyes relaxed)
+            # go to working state
+            if (isinstance(self.state.waiting_state, RelaxState) and
+                        self.state.waiting_state.process_time < elapsed):
                 self.state = self.state.waiting_state.next_state()
                 sendmessage(self.state.title,
                             self.state.message,
                             self.state.image)
                 self.player.play(self.state.track)
-                self.state.notify_state(timeout)
             else:
                 self.state = self.state.waiting_state
+                self.state.notify_state(timeout)
             self.elapsed = elapsed = 0
             print "Process Activate"
         elif not self.elapsed and elapsed:
