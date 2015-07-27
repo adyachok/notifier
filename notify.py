@@ -82,11 +82,12 @@ class State(object):
         sendmessage(title, message, img)
 
     def get_timeout(self):
-        return int(self.process_time - self.elapsed)
+        return self.process_time - self.elapsed
 
 
 class WorkState(State):
     def __init__(self):
+        super(WorkState, self).__init__()
         self.name = "Work"
         self.process_time = 45 * 60
         self.title = "Time to play"
@@ -99,6 +100,7 @@ class WorkState(State):
 
 class RelaxState(State):
     def __init__(self, startState=None):
+        super(RelaxState, self).__init__()
         self.name = "Relax"
         self.process_time = 15 * 60
         self.title = "Time to relax"
@@ -111,6 +113,7 @@ class RelaxState(State):
 
 class WaitingState(State):
     def __init__(self, trigger_obj):
+        super(WaitingState, self).__init__()
         self.name = "Waiting"
         self.process_time = 8 * 60 * 60
         self.waiting_state = trigger_obj
@@ -138,7 +141,7 @@ class Timer(object):
         if stdin:
             for desc in stdin:
                 print desc.recv(1024)
-            elapsed = time.time() - start_time
+            elapsed = int(time.time() - start_time)
             return elapsed, empty
         empty = True
         return elapsed, empty
