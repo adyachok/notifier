@@ -70,19 +70,19 @@ class State(object):
         self.elapsed = 0
 
     def next_state(self):
+        self.elapsed = 0
         return self._next_state
 
-    def notify_state(self, elapsed):
+    def notify_state(self):
+        timeout_min = (self.process_time - self.elapsed) / 60
         title = "Notification"
         message = "You now in %s state and it finishes through %s minutes" % (
-            self.name, int(self.process_time / 60))
+            self.name, timeout_min)
         img = _full_path('img/bell.png')
         sendmessage(title, message, img)
 
-    def run(self, handler):
-        import signal
-        signal.signal(signal.SIGALRM, handler)
-        signal.alarm(self.process_time)
+    def get_timeout(self):
+        return int(self.process_time - self.elapsed)
 
 
 class WorkState(State):
@@ -114,6 +114,9 @@ class WaitingState(State):
         self.name = "Waiting"
         self.process_time = 8 * 60 * 60
         self.waiting_state = trigger_obj
+
+    def get_timeout(self):
+        return self.process_time
 
 
 class Timer(object):
@@ -187,58 +190,49 @@ class Engine():
         self.state = WorkState()
         self.timer = Timer(sock)
         self.player = Player()
-        self.elapsed = 0
 
-    def process(self, timeout=0):
-        timeout = timeout if timeout else self.state.process_time
-        elapsed, empty = self.timer.socket_timer(self.state.process_time)
+    def process(self):
+        timeout = self.state.get_timeout()
+        elapsed, empty = self.timer.socket_timer(timeout)
         self.process_event(elapsed, empty)
 
     def process_event(self, elapsed=0, empty=False):
         timeout = 0
         if isinstance(self.state, WaitingState) and not empty:
-            timeout = int(self.state.waiting_state.process_time - self.elapsed)
-            # if waiting state arise from relax state - check if time
-            # elapsed is more than relax process time
-            # if true (mean user don't use PC for this time, so eyes relaxed)
-            # go to working state
-            if (isinstance(self.state.waiting_state, RelaxState) and
-                        self.state.waiting_state.process_time < elapsed):
-                self.state = self.state.waiting_state.next_state()
+            w_state = self.state.waiting_state
+            w_state.elapsed += elapsed
+
+            if (isinstance(w_state, RelaxState) and
+                        w_state.process_time < w_state.elapsed):
+                self.state = w_state.next_state()
                 sendmessage(self.state.title,
                             self.state.message,
                             self.state.image)
                 self.player.play(self.state.track)
             else:
                 self.state = self.state.waiting_state
-                self.state.notify_state(timeout)
-            self.elapsed = elapsed = 0
+                self.state.notify_state()
+            elapsed = 0
             print "Process Activate"
-        elif not self.elapsed and elapsed:
-            self.elapsed = elapsed
+        elif elapsed:
+            self.state.elapsed = elapsed
             self.state = WaitingState(self.state)
             print "Waiting state"
-        elif empty and not self.elapsed:
+        elif empty:
             self.state = self.state.next_state()
             sendmessage(self.state.title, self.state.message, self.state.image)
             self.player.play(self.state.track)
             print "New state"
-        self.process(timeout)
+        self.process()
 
 
 def main():
     parent, child = socket.socketpair()
     engine = Engine(parent)
     screen = ScreenState(child)
-
-    # job_queue = multiprocessing.JoinableQueue()
-    # engine = Engine(job_queue)
-    # screen = ScreenState(job_queue)
-
     listener = multiprocessing.Process(target=screen.process)
     listener.daemon = True
     listener.start()
-    #listener.join()
     print "Start Engine"
     engine.process()
 
