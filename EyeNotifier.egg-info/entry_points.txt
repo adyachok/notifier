@@ -1,3 +1,0 @@
-[console_scripts]
-eye-notify = eye_notifier.eye_notify:main
-
