@@ -1,0 +1,8 @@
+setup.py
+EyeNotifier.egg-info/PKG-INFO
+EyeNotifier.egg-info/SOURCES.txt
+EyeNotifier.egg-info/dependency_links.txt
+EyeNotifier.egg-info/entry_points.txt
+EyeNotifier.egg-info/top_level.txt
+src/eye_notifier/__init__.py
+src/eye_notifier/eye_notify.py

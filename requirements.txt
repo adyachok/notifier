@@ -1,0 +1,3 @@
+PyGTK
+pygobject
+dbus-python
