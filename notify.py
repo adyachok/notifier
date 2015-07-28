@@ -6,16 +6,27 @@
 
 import gobject
 import dbus
+import logging
 import multiprocessing
 import os
 import pynotify
-import Queue
 import select
 import socket
 import time
 
 from dbus.mainloop.glib import DBusGMainLoop
+from logging.handlers import RotatingFileHandler
 from pygame import mixer
+
+
+LOG = logging.getLogger(__name__)
+# file_handler = RotatingFileHandler('/var/log/notifier.log',
+#                               maxBytes=262144,
+#                               backupCount=1)
+handler = logging.StreamHandler()
+
+LOG.setLevel(logging.ERROR)
+LOG.addHandler(handler)
 
 
 def notify(summary, body='', app_name='', app_icon='',
@@ -140,7 +151,7 @@ class Timer(object):
         stdin, stdut, stderr = select.select([self.sock],[],[], timeout)
         if stdin:
             for desc in stdin:
-                print desc.recv(1024)
+                desc.recv(1024)
             elapsed = int(time.time() - start_time)
             return elapsed, empty
         empty = True
@@ -182,7 +193,7 @@ class ScreenState(object):
 
     def listen(self, *args, **kwargs):
         self.sock.sendall("1")
-        print "Put event"
+        LOG.info("Put event")
 
     def get_screen_state(self):
         return self.iface.GetActive()
@@ -200,7 +211,6 @@ class Engine():
         self.process_event(elapsed, empty)
 
     def process_event(self, elapsed=0, empty=False):
-        timeout = 0
         if isinstance(self.state, WaitingState) and not empty:
             w_state = self.state.waiting_state
             w_state.elapsed += elapsed
@@ -216,16 +226,16 @@ class Engine():
                 self.state = self.state.waiting_state
                 self.state.notify_state()
             elapsed = 0
-            print "Process Activate"
+            LOG.info("Process Activate")
         elif elapsed:
             self.state.elapsed = elapsed
             self.state = WaitingState(self.state)
-            print "Waiting state"
+            LOG.info("Waiting state")
         elif empty:
             self.state = self.state.next_state()
             sendmessage(self.state.title, self.state.message, self.state.image)
             self.player.play(self.state.track)
-            print "New state"
+            LOG.info("New state")
         self.process()
 
 
@@ -236,7 +246,7 @@ def main():
     listener = multiprocessing.Process(target=screen.process)
     listener.daemon = True
     listener.start()
-    print "Start Engine"
+    LOG.info("Start Engine")
     engine.process()
 
 
