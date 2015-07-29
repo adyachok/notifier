@@ -213,10 +213,11 @@ class Engine():
     def process_event(self, elapsed=0, empty=False):
         if isinstance(self.state, WaitingState) and not empty:
             w_state = self.state.waiting_state
-            w_state.elapsed += elapsed
 
-            if (isinstance(w_state, RelaxState) and
-                        w_state.process_time < w_state.elapsed):
+            if isinstance(w_state, RelaxState):
+                w_state.elapsed += elapsed
+
+            if w_state.process_time < w_state.elapsed:
                 self.state = w_state.next_state()
                 sendmessage(self.state.title,
                             self.state.message,
@@ -228,7 +229,7 @@ class Engine():
             elapsed = 0
             LOG.info("Process Activate")
         elif elapsed:
-            self.state.elapsed = elapsed
+            self.state.elapsed += elapsed
             self.state = WaitingState(self.state)
             LOG.info("Waiting state")
         elif empty:
